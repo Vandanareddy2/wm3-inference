@@ -5,10 +5,11 @@ import threading
 import numpy as np
 import xarray as xr
 from datetime import timedelta
-from utils import levels_medium
+from utils import levels_gfs, levels_medium
 
-# Upper-air levels written to disk (a subset of the 28 model levels, to keep files a manageable size)
-SAVED_LEVELS = [50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]
+# Upper-air levels written to disk: the 25 levels the WindBorne gridded-forecast API offers (identical to the GFS
+# levels), all of which are among the model's 28 output levels
+SAVED_LEVELS = levels_gfs
 
 LATS = np.arange(90, -90, -0.25, dtype=np.float32)
 LONS = np.arange(0, 360, 0.25, dtype=np.float32)
