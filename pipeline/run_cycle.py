@@ -171,6 +171,8 @@ def process(init_time, attempts):
         m = run_cycle(init_time)
         result = {"cycle": tag, "status": m["status"], "timings": m["timings"], "wall_s": round(time.time() - started, 1), "finished": m["completed_at"]}
         log(f"cycle {tag} {m['status']} {m['timings']}")
+        if m["status"] == "ok":
+            alert(f"WM-3 {tag} done", f"done ✅, took {result['wall_s'] / 60:.1f} min, {len(m['files'])} files uploaded", priority="low")
     except Exception as e:
         result = {"cycle": tag, "status": "error", "error": f"{type(e).__name__}: {e}", "attempt": attempts[tag], "finished": datetime.now(timezone.utc).isoformat()}
         alert(f"WM-3 {tag} failed (attempt {attempts[tag]}/{MAX_ATTEMPTS})", traceback.format_exc()[-1500:])
