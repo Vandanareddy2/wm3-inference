@@ -1,0 +1,32 @@
+name: pipeline-watchdog
+# Runs outside the GPU pod, so it still alerts if the pod itself is dead.
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check pipeline heartbeat and forecast freshness
+        run: |
+          STATUS_URL="https://windborne-wm3-vandana-131548386286-us-east-2-an.s3.us-east-2.amazonaws.com/forecasts/status.json"
+          if status=$(curl -sf "$STATUS_URL"); then
+            msg=$(echo "$status" | python3 -c '
+          import json, sys, datetime as d
+          s = json.load(sys.stdin); now = d.datetime.now(d.timezone.utc)
+          hb_min = (now - d.datetime.fromisoformat(s["heartbeat"])).total_seconds() / 60
+          ok = s.get("latest_successful_cycle")
+          age_h = (now - d.datetime.strptime(ok, "%Y%m%d%H").replace(tzinfo=d.timezone.utc)).total_seconds() / 3600 if ok else 999
+          problems = []
+          if hb_min > 30: problems.append(f"no heartbeat for {hb_min:.0f} min")
+          if age_h > 15: problems.append(f"newest forecast {ok} is {age_h:.0f}h old")
+          print("; ".join(problems))')
+          else
+            msg="status.json unreachable"
+          fi
+          if [ -n "$msg" ]; then
+            curl -s -H "Title: WM-3 watchdog" -H "Priority: urgent" -d "$msg" https://ntfy.sh/wm3-vandana-alerts-4821
+            exit 1
+          fi
