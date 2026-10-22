@@ -90,8 +90,13 @@ def run_cycle(init_time):
     def postprocess(lead, y):
         fields = infer.to_physical(y, out_mesh)
         stats, failures = validate.check_step(fields)
+        # GFS publishes forecast hours progressively (~1.5h after f000), so the comparison is best-effort: a lead
+        # that isn't out yet is recorded as unavailable rather than failing the whole cycle.
         if lead in GFS_COMPARE_LEADS:
-            stats["vs_gfs"] = validate.compare_with_gfs(fields, init_time, lead)
+            if gfs.is_available(init_time, lead):
+                stats["vs_gfs"] = validate.compare_with_gfs(fields, init_time, lead)
+            else:
+                stats["vs_gfs_unavailable"] = f"GFS f{lead:03d} not yet published"
         nc = os.path.join(run_dir, f"wm3_{tag}_f{lead:03d}.nc")
         output.write_netcdf(nc, fields, init_time, lead)
         upload(nc, f"{tag}/{os.path.basename(nc)}", "application/x-netcdf")
