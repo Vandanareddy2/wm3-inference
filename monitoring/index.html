@@ -58,7 +58,7 @@ async function load() {
     .map(([lead, s]) => `<tr><td>${lead}</td><td>${fmt(s.vs_gfs.geopotential500_rmse / 9.80665)}</td><td>${fmt(s.vs_gfs.temperature850_rmse, 2)}</td>
       <td>${fmt(s.vs_gfs.temperature_2m_rmse, 2)}</td><td>${fmt(s.vs_gfs.pressure_msl_rmse / 100, 2)}</td>
       <td>${fmt(s.t2m_global_mean_K, 2)}</td><td>${fmt(s.msl_global_mean_hPa, 2)}</td></tr>`).join("");
-  document.getElementById("maps").innerHTML = [24, 120, 240]
+  document.getElementById("maps").innerHTML = [24, 120, 240, 336]
     .map(l => `<p>+${l}h</p><img loading="lazy" alt="WM-3 forecast +${l}h" src="${latest}/wm3_${latest}_f${String(l).padStart(3, "0")}.png">`).join("");
 }
 load().catch(e => document.getElementById("summary").textContent = "Could not load status: " + e);

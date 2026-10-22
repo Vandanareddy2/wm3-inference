@@ -28,15 +28,15 @@ PREFIX = os.environ.get("S3_PREFIX", "forecasts")
 NTFY_TOPIC = os.environ.get("NTFY_TOPIC", "wm3-vandana-alerts-4821")
 WEIGHTS = os.environ.get("WEIGHTS_PATH", "WeatherMesh3.pt")
 WORK_DIR = os.environ.get("WORK_DIR", "/workspace/runs")
-MAX_LEAD = int(os.environ.get("MAX_LEAD_HOURS", "240"))
+MAX_LEAD = int(os.environ.get("MAX_LEAD_HOURS", "336"))  # 14 days, as in the WM-3 paper
 POLL_SECONDS = 600
 MAX_PENDING = 6  # forecast steps allowed to wait for postprocessing at once
 MAX_ATTEMPTS = 3
 STALE_HOURS = 9  # alert if no successful cycle within this long (GFS cycles are 6h apart, ~4h publication delay)
 
 LEADS = list(range(6, MAX_LEAD + 1, 6))
-PLOT_LEADS = {24, 72, 120, 240}
-GFS_COMPARE_LEADS = {6, 24, 120, 240}
+PLOT_LEADS = {24, 72, 120, 240, 336}
+GFS_COMPARE_LEADS = {6, 24, 120, 240, 336}
 
 s3 = boto3.client("s3")
 _model = None
