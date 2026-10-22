@@ -21,7 +21,7 @@
 <p id="summary" class="muted">Loading status.json…</p>
 <h2>Recent cycles</h2>
 <div class="wrap"><table id="runs"><thead><tr>
-  <th>Cycle</th><th>Status</th><th>Download</th><th>Preprocess</th><th>Inference</th><th>Post+upload</th><th>Wall</th><th>Finished (UTC)</th><th>Files</th>
+  <th>Cycle</th><th>Status</th><th>Download</th><th>Preprocess</th><th title="Time from the model starting until it produced the last step. Includes pauses while finished steps are written to disk (pure model time is ~36 s, see pipeline/benchmark.py)">Model + saving</th><th title="Time after the model finished, to write and upload the remaining files">Finish upload</th><th>Wall</th><th>Finished (UTC)</th><th>Files</th>
 </tr></thead><tbody></tbody></table></div>
 <h2>Latest forecast checks</h2>
 <p class="muted">Lat-weighted RMSE of WM-3 vs GFS's own forecast from the same initial conditions. Differences should be small at short leads and grow with lead time.</p>
