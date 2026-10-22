@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WM-3 Pipeline Status</title>
+<style>
+  :root { --bg: #fff; --fg: #1a1a1a; --muted: #666; --line: #ddd; --ok: #1a7f37; --bad: #cf222e; --warn: #9a6700; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #111; --fg: #eee; --muted: #999; --line: #333; --ok: #3fb950; --bad: #f85149; --warn: #d29922; } }
+  body { background: var(--bg); color: var(--fg); font: 14px/1.5 system-ui, sans-serif; margin: 0 auto; max-width: 1100px; padding: 16px; }
+  table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  .wrap { overflow-x: auto; }
+  .ok { color: var(--ok); } .bad { color: var(--bad); } .warn { color: var(--warn); } .muted { color: var(--muted); }
+  img { max-width: 100%; border: 1px solid var(--line); }
+  a { color: inherit; }
+</style>
+</head>
+<body>
+<h1>WeatherMesh-3 real-time pipeline</h1>
+<p id="summary" class="muted">Loading status.json…</p>
+<h2>Recent cycles</h2>
+<div class="wrap"><table id="runs"><thead><tr>
+  <th>Cycle</th><th>Status</th><th>Download</th><th>Preprocess</th><th>Inference</th><th>Post+upload</th><th>Wall</th><th>Finished (UTC)</th><th>Files</th>
+</tr></thead><tbody></tbody></table></div>
+<h2>Latest forecast checks</h2>
+<p class="muted">Lat-weighted RMSE of WM-3 vs GFS's own forecast from the same initial conditions. Differences should be small at short leads and grow with lead time.</p>
+<div class="wrap"><table id="checks"><thead><tr>
+  <th>Lead (h)</th><th>Z500 RMSE (m)</th><th>T850 RMSE (K)</th><th>T2m RMSE (K)</th><th>MSL RMSE (hPa)</th><th>Global T2m (K)</th><th>Global MSL (hPa)</th>
+</tr></thead><tbody></tbody></table></div>
+<h2>Latest maps</h2>
+<div id="maps"></div>
+<script>
+const fmt = (v, d = 1) => v === undefined ? "–" : Number(v).toFixed(d);
+async function load() {
+  const status = await (await fetch("status.json", { cache: "no-store" })).json();
+  const ageMin = (Date.now() - Date.parse(status.heartbeat)) / 60000;
+  const healthy = ageMin < 30;
+  document.getElementById("summary").innerHTML =
+    `Pipeline <b class="${healthy ? "ok" : "bad"}">${healthy ? "alive" : "NOT RESPONDING"}</b> · state: ${status.state}` +
+    (status.current_cycle ? ` (${status.current_cycle})` : "") +
+    ` · last heartbeat ${fmt(ageMin, 0)} min ago · latest successful cycle: <b>${status.latest_successful_cycle || "none"}</b>`;
+
+  document.querySelector("#runs tbody").innerHTML = status.runs.map(r => {
+    const t = r.timings || {};
+    const cls = r.status === "ok" ? "ok" : r.status === "error" ? "bad" : "warn";
+    return `<tr><td>${r.cycle}</td><td class="${cls}" title="${r.error || ""}">${r.status}</td>
+      <td>${fmt(t.download_s)}s</td><td>${fmt(t.preprocess_s)}s</td><td>${fmt(t.inference_s)}s</td><td>${fmt(t.postprocess_and_upload_s)}s</td>
+      <td>${fmt(r.wall_s)}s</td><td>${(r.finished || "").slice(0, 16).replace("T", " ")}</td>
+      <td>${r.status === "error" ? "" : `<a href="${r.cycle}/manifest.json">manifest</a>`}</td></tr>`;
+  }).join("");
+
+  const latest = status.latest_successful_cycle;
+  if (!latest) return;
+  const m = await (await fetch(`${latest}/manifest.json`, { cache: "no-store" })).json();
+  document.querySelector("#checks tbody").innerHTML = Object.entries(m.steps)
+    .filter(([, s]) => s.vs_gfs)
+    .map(([lead, s]) => `<tr><td>${lead}</td><td>${fmt(s.vs_gfs.geopotential500_rmse / 9.80665)}</td><td>${fmt(s.vs_gfs.temperature850_rmse, 2)}</td>
+      <td>${fmt(s.vs_gfs.temperature_2m_rmse, 2)}</td><td>${fmt(s.vs_gfs.pressure_msl_rmse / 100, 2)}</td>
+      <td>${fmt(s.t2m_global_mean_K, 2)}</td><td>${fmt(s.msl_global_mean_hPa, 2)}</td></tr>`).join("");
+  document.getElementById("maps").innerHTML = [24, 120, 240]
+    .map(l => `<p>+${l}h</p><img loading="lazy" alt="WM-3 forecast +${l}h" src="${latest}/wm3_${latest}_f${String(l).padStart(3, "0")}.png">`).join("");
+}
+load().catch(e => document.getElementById("summary").textContent = "Could not load status: " + e);
+</script>
+</body>
+</html>
