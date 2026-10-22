@@ -101,6 +101,7 @@ For each GFS cycle, in `s3://$S3_BUCKET/forecasts/{YYYYMMDDHH}/`:
 - **Crashes:** `run.sh` restarts the loop and sends an alert.
 - **Dead machine:** the GitHub Actions watchdog checks `status.json` every 30 minutes, from outside the GPU machine, and alerts if there's no heartbeat or no fresh forecast.
 - **Success:** a silent (low-priority) notification after each cycle.
+- **GFS comparison catch-up:** a cycle runs as soon as GFS's analysis is out, before GFS publishes its later forecast hours, so the 5/10/14-day comparisons are skipped at run time. Every 10 minutes the loop fills them in for the last 4 cycles once GFS has published them, and updates each cycle's `manifest.json`.
 
 ## Known limitations
 

@@ -180,6 +180,35 @@ def process(init_time, attempts):
     update_status(state="idle", current_cycle=None)
     return result["status"] != "error"
 
+def backfill_gfs_comparisons(recent=4):
+    """
+    Each cycle runs as soon as GFS f000 is out, but GFS publishes its later lead times over the next ~1.5h, so
+    most GFS comparisons are skipped at run time. Fill them in for recent cycles once GFS has published them.
+    """
+    status = get_json("status.json", {"runs": []})
+    for run in [r for r in status["runs"] if r["status"] == "ok"][:recent]:
+        tag = run["cycle"]
+        manifest = get_json(f"{tag}/manifest.json", None)
+        if not manifest:
+            continue
+        init_time = datetime.strptime(tag, "%Y%m%d%H").replace(tzinfo=timezone.utc)
+        filled = []
+        for lead, stats in manifest["steps"].items():
+            if "vs_gfs_unavailable" not in stats or not gfs.is_available(init_time, int(lead)):
+                continue
+            os.makedirs(WORK_DIR, exist_ok=True)
+            path = os.path.join(WORK_DIR, f"backfill_{tag}_f{int(lead):03d}.nc")
+            s3.download_file(BUCKET, f"{PREFIX}/{tag}/wm3_{tag}_f{int(lead):03d}.nc", path)
+            try:
+                stats["vs_gfs"] = validate.compare_netcdf_with_gfs(path, init_time, int(lead))
+            finally:
+                os.remove(path)
+            del stats["vs_gfs_unavailable"]
+            filled.append(lead)
+        if filled:
+            put_json(f"{tag}/manifest.json", manifest)
+            log(f"backfilled GFS comparison for {tag} at leads {filled}")
+
 def loop():
     attempts = {}
     upload("monitoring/index.html", "index.html", "text/html")
@@ -198,6 +227,7 @@ def loop():
                     continue
                 process(init_time, attempts)
                 break
+            backfill_gfs_comparisons()
 
             last_ok = status.get("latest_successful_cycle")
             if last_ok:

@@ -6,6 +6,7 @@ Automatic sanity checks run on every forecast step:
      from the same analysis, so at short leads they should agree closely, with differences growing over time.
 """
 import numpy as np
+import xarray as xr
 from utils import levels_medium
 from pipeline import gfs
 
@@ -70,10 +71,19 @@ def check_step(fields):
 
 def compare_with_gfs(fields, init_time, lead_hour):
     """Lat-weighted RMSE and bias of WM-3 vs GFS's forecast for the same init and lead time."""
+    return _compare(lambda name, level: _field(fields, name, level), init_time, lead_hour)
+
+def compare_netcdf_with_gfs(path, init_time, lead_hour):
+    """Same as compare_with_gfs, for a forecast step already saved as NetCDF. GFS publishes its later lead times
+    after our run has finished, so those comparisons are filled in afterwards from the saved files."""
+    with xr.open_dataset(path) as ds:
+        return _compare(lambda name, level: (ds[name].sel(level=level) if level else ds[name])[0].values, init_time, lead_hour)
+
+def _compare(get_field, init_time, lead_hour):
     gfs_fields = gfs.fetch_fields(init_time, [k for _, _, k, _ in GFS_COMPARE], fhour=lead_hour)
     out = {}
     for name, level, key, conv in GFS_COMPARE:
-        diff = _field(fields, name, level) - gfs_fields[key][:720] * conv
+        diff = get_field(name, level) - gfs_fields[key][:720] * conv
         label = f"{name}{level or ''}"
         out[f"{label}_rmse"] = float(np.sqrt(wmean(diff ** 2)))
         out[f"{label}_bias"] = wmean(diff)
